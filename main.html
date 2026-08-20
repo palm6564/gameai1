@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>First Person Fighting</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    :root {
+      --text: #111;
+      --muted: #555;
+      --panel: rgba(255, 255, 255, 0.92);
+      --line: #d5dce8;
+      --soft: #f3f7ff;
+      --blue: #2858c8;
+      --orange: #f0a33b;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #eaf2ff, #f7fbff);
+    }
+
+    .app {
+      max-width: 1180px;
+      margin: 0 auto;
+    }
+
+    .header {
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 32px;
+    }
+
+    .header p {
+      margin: 0;
+      font-size: 18px;
+      font-weight: bold;
+    }
+
+    .toolbar,
+    .status-card,
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--panel);
+      box-shadow: 0 8px 24px rgba(20, 50, 90, 0.08);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      padding: 14px;
+      margin-bottom: 20px;
+    }
+
+    button {
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 17px;
+      font-weight: bold;
+      border: 1px solid #b8c0cc;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    button:hover:not(:disabled) {
+      background: #eef5ff;
+    }
+
+    button.secondary {
+      color: #fff;
+      border-color: var(--blue);
+      background: var(--blue);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .status-card {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px 28px;
+      justify-content: space-between;
+      padding: 16px 20px;
+      margin-bottom: 20px;
+      font-size: 18px;
+    }
+
+    .status-card strong {
+      color: var(--blue);
+    }
+
+    .main-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .panel {
+      min-width: 0;
+      padding: 20px;
+    }
+
+    .panel-title {
+      margin: 0 0 14px;
+      font-size: 22px;
+    }
+
+    .camera-box,
+    #gameContainer {
+      min-height: 430px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      padding: 14px;
+      border: 1px dashed #b8c4d8;
+      border-radius: 16px;
+      background: var(--soft);
+    }
+
+    #webcamCanvas {
+      width: 100%;
+      max-width: 430px;
+      height: auto;
+      border: 3px solid #222;
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    #gameContainer {
+      padding: 0;
+      background: #182331;
+    }
+
+    #gameContainer canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .hint,
+    .legend {
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    .hint {
+      margin: 12px 0 0;
+      font-size: 15px;
+    }
+
+    .legend {
+      margin: 12px 0 0;
+      font-size: 15px;
+    }
+
+    .result-card {
+      margin-top: 16px;
+      padding: 20px 18px;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #f8fbff;
+    }
+
+    #result {
+      font-size: 30px;
+      font-weight: bold;
+    }
+
+    #confidence {
+      margin-top: 6px;
+      font-size: 20px;
+    }
+
+    #action {
+      margin-top: 10px;
+      color: var(--blue);
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    .score-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .score-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 11px 14px;
+      border: 1px solid #dce4f2;
+      border-radius: 12px;
+      background: #f5f8ff;
+    }
+
+    .score-item.active {
+      border-color: var(--orange);
+      background: #fff8ed;
+    }
+
+    .score-percent {
+      color: var(--blue);
+      font-weight: bold;
+    }
+
+    @media (max-width: 900px) {
+      body {
+        padding: 16px;
+      }
+
+      .main-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .camera-box,
+      #gameContainer {
+        min-height: 380px;
+      }
+
+      h1 {
+        font-size: 26px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>First Person Fighting</h1>
+      <p>ควบคุมแขนซ้ายและขวาด้วยท่าทางจาก Teachable Machine</p>
+    </header>
+    <div class="toolbar">
+      <button id="loadBtn" type="button" onclick="loadModel()">โหลดโมเดล 6 ท่า</button>
+      <button id="cameraBtn" type="button" onclick="startCamera()" disabled>เปิดกล้อง</button>
+      <button id="stopBtn" class="secondary" type="button" onclick="stopCamera()" disabled>หยุดกล้อง</button>
+      <button id="startGameBtn" type="button" onclick="startGame()">เริ่มเกม</button>
+      <button id="resetBtn" class="secondary" type="button" onclick="resetGame()">เริ่มใหม่</button>
+    </div>
+    <section class="status-card" aria-live="polite">
+      <span>เกม: <strong id="gameState">ยังไม่เริ่ม</strong></span>
+      <span>คู่ต่อสู้: <strong id="enemyState">รอเริ่มเกม</strong></span>
+      <span>คะแนน: <strong id="score">0</strong></span>
+      <span>พลังชีวิต: <strong id="health">100</strong></span>
+    </section>
+    <section class="main-grid">
+      <section class="panel">
+        <h2 class="panel-title">กล้องตรวจจับท่าทาง</h2>
+        <div class="camera-box"><canvas id="webcamCanvas" width="400" height="400"></canvas></div>
+        <div class="result-card">
+          <div id="result">ท่าปัจจุบัน: -</div>
+          <div id="confidence">ความมั่นใจ: -</div>
+          <div id="action">สถานะ: โหลดโมเดล 6 ท่าก่อน</div>
+        </div>
+        <div id="scoreList" class="score-list"></div>
+      </section>
+      <section class="panel">
+        <h2 class="panel-title">หน้าจอเกม</h2>
+        <div id="gameContainer"></div>
+        <div class="legend">โจมตีซ้าย/ขวาเพื่อทำคะแนน ป้องกันให้ตรงกับด้านที่ศัตรูโจมตี และใช้ block เพื่อกันการโจมตีตรงกลาง</div>
+      </section>
+    </section>
+  </main>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@1.3.1/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@0.8.4/dist/teachablemachine-image.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script>
+    // Replace this with the Teachable Machine URL containing all 6 pose classes.
+    const MODEL_URL = "https://teachablemachine.withgoogle.com/models/REPLACE_WITH_6_POSE_MODEL/";
+    const CONFIDENCE_LIMIT = 0.80;
+    const POSES = ["defend_left", "defend_right", "block", "attack_left", "attack_right", "idle"];
+    let model, webcam, webcamContext, isCameraRunning=false, gameRunning=false, score=0, health=100, enemyAttack="idle", enemyTimer;
+    let lastHandledPose="", lastHandledAt=0;
+    let scene, camera, renderer, target, targetMaterial;
+    let leftArm, rightArm, enemyBody, armPose = "idle";
+    let enemyPose = "idle";
+    let enemyLeftArm, enemyRightArm, enemyMaterial;
+    const labelAliases = {
+      defend_left:["defend_left","defense_left","ป้องกันซ้าย","ป้องกัน ซ้าย"],
+      defend_right:["defend_right","defense_right","ป้องกันขวา","ป้องกัน ขวา"],
+      block:["block","block_all","บล็อก","ป้องกันทั้งหมด","ป้องกันหมด"],
+      attack_left:["attack_left","โจมตีซ้าย","โจมตี ซ้าย"],
+      attack_right:["attack_right","โจมตีขวา","โจมตี ขวา"],
+      idle:["idle","none","ว่าง","ไม่ทำท่า"]
+    };
+    function normalizeLabel(label) {
+      return label.toLowerCase().replace(/[ _-]/g, "").trim();
+    }
+
+    function mapPose(label) {
+      const value = normalizeLabel(label);
+      return (
+        POSES.find((pose) =>
+          labelAliases[pose].some((alias) => normalizeLabel(alias) === value)
+        ) || "unknown"
+      );
+    }
+
+    function setAction(text) {
+      document.getElementById("action").textContent = "สถานะ: " + text;
+    }
+
+    async function loadModel() {
+      const button = document.getElementById("loadBtn");
+      button.disabled = true;
+      setAction("กำลังโหลดโมเดล");
+
+      try {
+        if (MODEL_URL.includes("REPLACE_WITH")) {
+          throw new Error("กรุณาใส่ URL ของโมเดล 6 ท่าใน MODEL_URL ก่อน");
+        }
+
+        model = await tmImage.load(
+          MODEL_URL + "model.json",
+          MODEL_URL + "metadata.json"
+        );
+
+        if (model.getTotalClasses() !== 6) {
+          throw new Error(
+            "โมเดลนี้มี " + model.getTotalClasses() + " class ต้องเป็น 6 class"
+          );
+        }
+
+        document.getElementById("cameraBtn").disabled = false;
+        button.textContent = "โหลดโมเดลแล้ว";
+        setAction("โหลดโมเดล 6 ท่าสำเร็จ");
+      } catch (error) {
+        console.error(error);
+        button.disabled = false;
+        button.textContent = "โหลดโมเดล 6 ท่า";
+        setAction(error.message || "โหลดโมเดลไม่ได้");
+      }
+    }
+
+    async function startCamera() {
+      if (!model) {
+        setAction("ต้องโหลดโมเดลก่อน");
+        return;
+      }
+
+      try {
+        webcam = new tmImage.Webcam(400, 400, true);
+        await webcam.setup();
+        await webcam.play();
+
+        const canvas = document.getElementById("webcamCanvas");
+        canvas.width = 400;
+        canvas.height = 400;
+        webcamContext = canvas.getContext("2d");
+
+        isCameraRunning = true;
+        document.getElementById("cameraBtn").disabled = true;
+        document.getElementById("stopBtn").disabled = false;
+        setAction("เปิดกล้องแล้ว กำลังตรวจจับ");
+        requestAnimationFrame(cameraLoop);
+      } catch (error) {
+        console.error(error);
+        setAction("เปิดกล้องไม่ได้ กรุณาอนุญาตการใช้กล้อง");
+      }
+    }
+
+    async function cameraLoop() {
+      if (!isCameraRunning) return;
+
+      webcam.update();
+      webcamContext.drawImage(webcam.canvas, 0, 0);
+      await predict(webcam.canvas);
+      requestAnimationFrame(cameraLoop);
+    }
+
+    function stopCamera() {
+      isCameraRunning = false;
+
+      if (webcam) {
+        webcam.stop();
+      }
+
+      document.getElementById("cameraBtn").disabled = !model;
+      document.getElementById("stopBtn").disabled = true;
+      setAction("หยุดกล้องแล้ว");
+    }
+    async function predict(input) {
+      if (!model) return;
+
+      const predictions = await model.predict(input);
+      const best = predictions.reduce((current, item) =>
+        item.probability > current.probability ? item : current
+      );
+      const pose = mapPose(best.className);
+
+      document.getElementById("result").textContent =
+        "ท่าปัจจุบัน: " + best.className;
+      document.getElementById("confidence").textContent =
+        "ความมั่นใจ: " + (best.probability * 100).toFixed(1) + "%";
+      renderScores(predictions, pose);
+
+      if (
+        best.probability >= CONFIDENCE_LIMIT &&
+        pose !== "unknown" &&
+        pose !== "idle"
+      ) {
+        handlePose(pose);
+      }
+    }
+
+    function renderScores(predictions, activePose) {
+      document.getElementById("scoreList").innerHTML = predictions
+        .map((item) => {
+          const pose = mapPose(item.className);
+          const activeClass = pose === activePose ? "active" : "";
+          const percent = (item.probability * 100).toFixed(1) + "%";
+
+          return (
+            '<div class="score-item ' +
+            activeClass +
+            '"><span>' +
+            item.className +
+            '</span><span class="score-percent">' +
+            percent +
+            "</span></div>"
+          );
+        })
+        .join("");
+    }
+
+    function handlePose(pose) {
+      if (!gameRunning) return;
+
+      armPose = pose;
+
+      const now = Date.now();
+      if (pose === lastHandledPose && now - lastHandledAt < 800) return;
+
+      lastHandledPose = pose;
+      lastHandledAt = now;
+
+      const defense =
+        pose === "block" || pose === "defend_" + enemyAttack.split("_")[1];
+      const attack = pose === "attack_left" || pose === "attack_right";
+
+      if (attack) {
+        score += 10;
+        setAction(
+          "โจมตี" + (pose.endsWith("left") ? "ซ้าย" : "ขวา") + " สำเร็จ +10"
+        );
+        flashTarget("#ffb347");
+      } else if (defense) {
+        score += 5;
+        setAction("ป้องกันสำเร็จ +5");
+        flashTarget("#57d9a3");
+      } else {
+        health = Math.max(0, health - 10);
+        setAction("ป้องกันพลาด เสียพลังชีวิต 10");
+        flashTarget("#ff5d67");
+      }
+
+      updateStatus();
+      if (health === 0) stopGame("แพ้เกม");
+    }
+
+    function startGame() {
+      gameRunning = true;
+      score = 0;
+      health = 100;
+      updateStatus();
+      setAction("เริ่มเกมแล้ว");
+      nextEnemyAttack();
+    }
+
+    function nextEnemyAttack() {
+      if (!gameRunning) return;
+
+      enemyAttack = Math.random() > 0.5 ? "attack_left" : "attack_right";
+      enemyPose = enemyAttack;
+      document.getElementById("enemyState").textContent =
+        enemyAttack === "attack_left" ? "โจมตีซ้าย" : "โจมตีขวา";
+      clearTimeout(enemyTimer);
+      enemyTimer = setTimeout(nextEnemyAttack, 3000);
+      flashTarget("#ff5d67");
+    }
+
+    function stopGame(message) {
+      gameRunning = false;
+      clearTimeout(enemyTimer);
+      document.getElementById("gameState").textContent = message;
+      setAction(message);
+    }
+
+    function resetGame() {
+      stopGame("ยังไม่เริ่ม");
+      score = 0;
+      health = 100;
+      enemyAttack = "idle";
+      armPose = "idle";
+      enemyPose = "idle";
+      lastHandledPose = "";
+      lastHandledAt = 0;
+      document.getElementById("enemyState").textContent = "รอเริ่มเกม";
+      updateStatus();
+      flashTarget("#ffb347");
+    }
+
+    function updateStatus() {
+      document.getElementById("gameState").textContent = gameRunning
+        ? "กำลังเล่น"
+        : document.getElementById("gameState").textContent;
+      document.getElementById("score").textContent = score;
+      document.getElementById("health").textContent = health;
+    }
+
+    function flashTarget(color) {
+      if (!targetMaterial) return;
+
+      targetMaterial.color.set(color);
+      setTimeout(() => targetMaterial.color.set("#b83643"), 220);
+    }
+
+    function createArm(color) {
+      const arm = new THREE.Group();
+      const material = new THREE.MeshStandardMaterial({ color });
+      const upper = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.13, 0.9, 8), material);
+      const lower = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.1, 0.8, 8), material);
+      const fist = new THREE.Mesh(new THREE.SphereGeometry(0.16, 10, 8), material);
+
+      upper.position.y = -0.45;
+      lower.position.y = -1.25;
+      fist.position.y = -1.7;
+      arm.add(upper, lower, fist);
+      return arm;
+    }
+
+    function createEnemy() {
+      const group = new THREE.Group();
+      enemyMaterial = new THREE.MeshStandardMaterial({ color: 0xb83643 });
+      const darkMaterial = new THREE.MeshStandardMaterial({ color: 0x202a38 });
+      const body = new THREE.Mesh(new THREE.BoxGeometry(1.4, 1.7, 0.7), enemyMaterial);
+      const head = new THREE.Mesh(new THREE.SphereGeometry(0.48, 16, 12), darkMaterial);
+
+      body.position.y = 1.15;
+      head.position.y = 2.35;
+      group.add(body, head);
+
+      enemyLeftArm = createArm(0xb83643);
+      enemyRightArm = createArm(0xb83643);
+      enemyLeftArm.position.set(-0.85, 1.65, 0);
+      enemyRightArm.position.set(0.85, 1.65, 0);
+      enemyLeftArm.rotation.z = -0.35;
+      enemyRightArm.rotation.z = 0.35;
+      group.add(enemyLeftArm, enemyRightArm);
+
+      return group;
+    }
+
+    function updateCombatAnimation() {
+      if (!leftArm || !rightArm || !enemyBody) return;
+
+      const leftTarget = new THREE.Vector3(-0.9, -0.8, -1.35);
+      const rightTarget = new THREE.Vector3(0.9, -0.8, -1.35);
+      const leftRotation = new THREE.Euler(0.15, 0.15, -0.15);
+      const rightRotation = new THREE.Euler(0.15, -0.15, 0.15);
+
+      if (armPose === "attack_left") {
+        leftTarget.set(-0.45, -0.05, -2.15);
+        leftRotation.set(-0.25, 0.3, -0.15);
+      } else if (armPose === "attack_right") {
+        rightTarget.set(0.45, -0.05, -2.15);
+        rightRotation.set(-0.25, -0.3, 0.15);
+      } else if (armPose === "defend_left") {
+        leftTarget.set(-0.95, 0.05, -1.55);
+        leftRotation.set(-0.8, 0.25, -0.5);
+      } else if (armPose === "defend_right") {
+        rightTarget.set(0.95, 0.05, -1.55);
+        rightRotation.set(-0.8, -0.25, 0.5);
+      } else if (armPose === "block") {
+        leftTarget.set(-0.28, 0.1, -1.8);
+        rightTarget.set(0.28, 0.1, -1.8);
+        leftRotation.set(-0.4, 0.15, -0.8);
+        rightRotation.set(-0.4, -0.15, 0.8);
+      }
+
+      leftArm.position.lerp(leftTarget, 0.12);
+      rightArm.position.lerp(rightTarget, 0.12);
+      leftArm.rotation.x += (leftRotation.x - leftArm.rotation.x) * 0.12;
+      leftArm.rotation.y += (leftRotation.y - leftArm.rotation.y) * 0.12;
+      leftArm.rotation.z += (leftRotation.z - leftArm.rotation.z) * 0.12;
+      rightArm.rotation.x += (rightRotation.x - rightArm.rotation.x) * 0.12;
+      rightArm.rotation.y += (rightRotation.y - rightArm.rotation.y) * 0.12;
+      rightArm.rotation.z += (rightRotation.z - rightArm.rotation.z) * 0.12;
+
+      enemyLeftArm.rotation.x += ((enemyPose === "attack_left" ? -1.1 : -0.35) - enemyLeftArm.rotation.x) * 0.1;
+      enemyRightArm.rotation.x += ((enemyPose === "attack_right" ? -1.1 : -0.35) - enemyRightArm.rotation.x) * 0.1;
+      const leftZ = enemyPose === "attack_left" ? -0.35 : 0;
+      const rightZ = enemyPose === "attack_right" ? -0.35 : 0;
+      enemyLeftArm.position.z += (leftZ - enemyLeftArm.position.z) * 0.1;
+      enemyRightArm.position.z += (rightZ - enemyRightArm.position.z) * 0.1;
+    }
+
+    function initGameScene() {
+      const container = document.getElementById("gameContainer");
+
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color("#101923");
+      camera = new THREE.PerspectiveCamera(65, 1, 0.1, 100);
+      camera.position.set(0, 1.6, 5);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      container.appendChild(renderer.domElement);
+
+      scene.add(new THREE.HemisphereLight(0xc9e4ff, 0x18202b, 1.5));
+
+      const floor = new THREE.Mesh(
+        new THREE.PlaneGeometry(20, 20),
+        new THREE.MeshStandardMaterial({ color: 0x26313d })
+      );
+      floor.rotation.x = -Math.PI / 2;
+      scene.add(floor);
+
+      leftArm = createArm(0x8d5a3b);
+      rightArm = createArm(0x8d5a3b);
+      leftArm.position.set(-0.9, -0.8, -1.35);
+      rightArm.position.set(0.9, -0.8, -1.35);
+      camera.add(leftArm, rightArm);
+      scene.add(camera);
+
+      enemyBody = createEnemy();
+      enemyBody.position.set(0, 0, 0);
+      scene.add(enemyBody);
+      targetMaterial = enemyMaterial;
+
+      resizeGameScene();
+      animateGameScene();
+    }
+
+    function resizeGameScene() {
+      if (!renderer) return;
+
+      const container = document.getElementById("gameContainer");
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      renderer.setSize(width, height, false);
+      camera.aspect = width / height;
+      camera.updateProjectionMatrix();
+    }
+
+    function animateGameScene() {
+      requestAnimationFrame(animateGameScene);
+
+      if (target) target.rotation.y += 0.004;
+      updateCombatAnimation();
+      renderer.render(scene, camera);
+    }
+    window.addEventListener("resize",resizeGameScene); initGameScene();
+  </script>
+</body>
+</html>

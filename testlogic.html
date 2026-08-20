@@ -1,0 +1,526 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ทดสอบ Logic เกมต่อสู้</title>
+  <style>
+    * { box-sizing: border-box; }
+
+    :root {
+      --text: #111;
+      --muted: #555;
+      --line: #d5dce8;
+      --blue: #2858c8;
+      --orange: #f0a33b;
+      --green: #1c9b63;
+      --red: #d33b48;
+    }
+
+    body {
+      margin: 0;
+      padding: 24px;
+      color: var(--text);
+      font-family: Arial, sans-serif;
+      background: linear-gradient(135deg, #eaf2ff, #f7fbff);
+    }
+
+    .app { max-width: 900px; margin: 0 auto; }
+    .header { margin-bottom: 20px; text-align: center; }
+    h1 { margin: 0 0 8px; font-size: 32px; }
+    .header p { margin: 0; font-weight: bold; color: var(--muted); }
+
+    .toolbar,
+    .status-card,
+    .panel,
+    .log-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.94);
+      box-shadow: 0 8px 24px rgba(20, 50, 90, 0.08);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+      padding: 14px;
+      margin-bottom: 16px;
+    }
+
+    .movement-button.active {
+      color: #fff;
+      border-color: var(--green);
+      background: var(--green);
+    }
+
+    button {
+      padding: 11px 15px;
+      color: var(--text);
+      font-size: 16px;
+      font-weight: bold;
+      border: 1px solid #b8c0cc;
+      border-radius: 10px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    button:hover:not(:disabled) { background: #eef5ff; }
+    button:disabled { opacity: 0.45; cursor: not-allowed; }
+    .primary { color: #fff; border-color: var(--blue); background: var(--blue); }
+    .danger { color: #fff; border-color: var(--red); background: var(--red); }
+
+    .status-card {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      text-align: center;
+    }
+
+    .status-item { padding: 8px; border-radius: 10px; background: #f5f8ff; }
+    .status-label { display: block; color: var(--muted); font-size: 14px; }
+    .status-value { display: block; margin-top: 4px; color: var(--blue); font-size: 21px; font-weight: bold; }
+
+    .panel { padding: 20px; }
+    .panel-title { margin: 0 0 14px; font-size: 22px; }
+    .enemy-box { margin-bottom: 18px; padding: 18px; text-align: center; border: 1px dashed #b8c4d8; border-radius: 12px; background: #f3f7ff; }
+    .enemy-label { color: var(--muted); }
+    #enemyAttack { margin-top: 8px; color: var(--red); font-size: 30px; font-weight: bold; }
+    #action { min-height: 30px; margin: 8px 0 18px; text-align: center; color: var(--blue); font-size: 20px; font-weight: bold; }
+
+    .game-board {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .fighter-card {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f8fbff;
+    }
+
+    .fighter-title {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-weight: bold;
+    }
+
+    .current-pose {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-bottom: 20px;
+    }
+
+    .pose-preview {
+      padding: 12px;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: #f8fbff;
+    }
+
+    .fighter-card .figure-stage {
+      height: 260px;
+    }
+
+    .fighter-card .stick-figure {
+      transform: scale(1.05);
+      transform-origin: bottom center;
+    }
+
+    .enemy-figure {
+      color: var(--red);
+      transform: scaleX(-1) scale(1.05);
+    }
+
+    .enemy-figure.pose-attack-left .stick-arm.left,
+    .enemy-figure.pose-attack-right .stick-arm.right {
+      height: 78px;
+    }
+
+    .pose-preview-title {
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-weight: bold;
+    }
+
+    .pose-preview img {
+      display: none;
+    }
+
+    .figure-stage {
+      position: relative;
+      height: 230px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #f3f7ff;
+    }
+
+    .stick-figure {
+      position: relative;
+      width: 150px;
+      height: 215px;
+      margin: 8px auto 0;
+      color: var(--blue);
+    }
+
+    .stick-head {
+      position: absolute;
+      top: 4px;
+      left: 59px;
+      width: 32px;
+      height: 32px;
+      border: 5px solid currentColor;
+      border-radius: 50%;
+      background: #fff;
+    }
+
+    .stick-body,
+    .stick-arm,
+    .stick-leg {
+      position: absolute;
+      width: 6px;
+      border-radius: 6px;
+      background: currentColor;
+      transform-origin: top center;
+      transition: transform 0.25s ease, height 0.25s ease, top 0.25s ease, left 0.25s ease;
+    }
+
+    .stick-body { top: 38px; left: 72px; height: 78px; }
+    .stick-arm { top: 45px; height: 65px; }
+    .stick-arm.left { left: 70px; transform: rotate(42deg); }
+    .stick-arm.right { left: 74px; transform: rotate(-42deg); }
+    .stick-leg { top: 112px; height: 82px; }
+    .stick-leg.left { left: 70px; transform: rotate(24deg); }
+    .stick-leg.right { left: 74px; transform: rotate(-24deg); }
+
+    .stick-fist {
+      position: absolute;
+      top: 101px;
+      width: 16px;
+      height: 16px;
+      border: 3px solid currentColor;
+      border-radius: 50%;
+      background: #fff;
+      transition: top 0.25s ease, left 0.25s ease;
+    }
+
+    .stick-fist.left { left: 37px; }
+    .stick-fist.right { left: 97px; }
+
+    .pose-attack-left .stick-arm.left { transform: rotate(82deg); }
+    .pose-attack-left .stick-fist.left { top: 101px; left: 4px; }
+    .pose-attack-right .stick-arm.right { transform: rotate(-82deg); }
+    .pose-attack-right .stick-fist.right { top: 101px; left: 130px; }
+    .pose-defend-left .stick-arm.left { transform: rotate(-32deg); height: 52px; }
+    .pose-defend-left .stick-fist.left { top: 34px; left: 40px; }
+    .pose-defend-right .stick-arm.right { transform: rotate(32deg); height: 52px; }
+    .pose-defend-right .stick-fist.right { top: 34px; left: 94px; }
+    .pose-block .stick-arm.left { left: 70px; transform: rotate(-48deg); height: 58px; }
+    .pose-block .stick-arm.right { left: 74px; transform: rotate(48deg); height: 58px; }
+    .pose-block .stick-fist.left { top: 77px; left: 34px; }
+    .pose-block .stick-fist.right { top: 77px; left: 100px; }
+
+    .stick-label {
+      position: absolute;
+      right: 8px;
+      bottom: 6px;
+      left: 8px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .pose-name {
+      margin-top: 8px;
+      color: var(--blue);
+      font-size: 19px;
+      font-weight: bold;
+    }
+
+    .pose-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+    .pose-button { min-height: 72px; }
+    .pose-button span { display: block; margin-top: 4px; color: var(--muted); font-size: 13px; font-weight: normal; }
+
+    .log-card { margin-top: 16px; padding: 16px; }
+    .log-title { margin: 0 0 10px; font-size: 18px; }
+    #eventLog { max-height: 180px; overflow: auto; margin: 0; padding-left: 20px; color: var(--muted); line-height: 1.6; }
+
+    @media (max-width: 650px) {
+      body { padding: 16px; }
+      h1 { font-size: 26px; }
+      .status-card { grid-template-columns: repeat(2, 1fr); }
+      .pose-grid { grid-template-columns: repeat(2, 1fr); }
+      .game-board { grid-template-columns: 1fr; }
+      .current-pose { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header class="header">
+      <h1>ทดสอบ Logic เกมต่อสู้</h1>
+      <p>ใช้ปุ่มแทนผลจาก Teachable Machine เพื่อเช็คกติกาเกม</p>
+    </header>
+
+    <div class="toolbar">
+      <button id="startButton" class="primary" type="button" onclick="startGame()">เริ่มเกม</button>
+      <button type="button" onclick="resetGame()">เริ่มใหม่</button>
+      <button id="stopButton" class="danger" type="button" onclick="stopGame()" disabled>หยุดเกม</button>
+      <button id="movementButton" class="movement-button" type="button" onclick="toggleMovementPreview()">ดูการเคลื่อนไหว</button>
+    </div>
+
+    <section class="status-card" aria-live="polite">
+      <div class="status-item"><span class="status-label">สถานะเกม</span><strong id="gameState" class="status-value">ยังไม่เริ่ม</strong></div>
+      <div class="status-item"><span class="status-label">คะแนน</span><strong id="score" class="status-value">0</strong></div>
+      <div class="status-item"><span class="status-label">พลังชีวิต</span><strong id="health" class="status-value">100</strong></div>
+      <div class="status-item"><span class="status-label">จำนวนรอบ</span><strong id="round" class="status-value">0</strong></div>
+    </section>
+
+    <section class="panel">
+      <h2 class="panel-title">หน้าจอเกม</h2>
+
+      <div class="game-board">
+        <div class="fighter-card">
+          <div class="fighter-title">ผู้เล่น</div>
+          <div class="figure-stage">
+            <div id="currentPoseFigure" class="stick-figure pose-idle">
+              <div class="stick-head"></div>
+              <div class="stick-body"></div>
+              <div class="stick-arm left"></div>
+              <div class="stick-arm right"></div>
+              <div class="stick-leg left"></div>
+              <div class="stick-leg right"></div>
+              <div class="stick-fist left"></div>
+              <div class="stick-fist right"></div>
+            </div>
+            <div class="stick-label">ท่าของผู้เล่น</div>
+          </div>
+          <div id="currentPoseName" class="pose-name">อยู่เฉย ๆ (idle)</div>
+        </div>
+
+        <div class="fighter-card">
+          <div class="fighter-title">ศัตรู</div>
+          <div class="figure-stage">
+            <div id="enemyFigure" class="stick-figure enemy-figure pose-idle">
+              <div class="stick-head"></div>
+              <div class="stick-body"></div>
+              <div class="stick-arm left"></div>
+              <div class="stick-arm right"></div>
+              <div class="stick-leg left"></div>
+              <div class="stick-leg right"></div>
+              <div class="stick-fist left"></div>
+              <div class="stick-fist right"></div>
+            </div>
+            <div class="stick-label">ศัตรูไม่หมุนตัว</div>
+          </div>
+          <div id="enemyAttack">กดเริ่มเกม</div>
+        </div>
+      </div>
+
+      <div id="action" aria-live="polite">สถานะ: ยังไม่เริ่มเกม</div>
+      <div id="detectedPoseName" class="pose-name">ท่าที่เกมรับรู้: อยู่เฉย ๆ / idle</div>
+
+      <h2 class="panel-title">เลือกท่าของผู้เล่น</h2>
+      <div class="pose-grid">
+        <button class="pose-button" type="button" onclick="usePose('defend_left')">ป้องกันซ้าย<span>defend_left</span></button>
+        <button class="pose-button" type="button" onclick="usePose('defend_right')">ป้องกันขวา<span>defend_right</span></button>
+        <button class="pose-button" type="button" onclick="usePose('block')">บล็อกทั้งหมด<span>block</span></button>
+        <button class="pose-button" type="button" onclick="usePose('attack_left')">โจมตีซ้าย<span>attack_left</span></button>
+        <button class="pose-button" type="button" onclick="usePose('attack_right')">โจมตีขวา<span>attack_right</span></button>
+        <button class="pose-button" type="button" onclick="usePose('idle')">อยู่เฉย ๆ<span>idle</span></button>
+      </div>
+    </section>
+
+    <section class="log-card">
+      <h2 class="log-title">ประวัติการทดสอบ</h2>
+      <ol id="eventLog"></ol>
+    </section>
+  </main>
+
+  <script>
+    const poseNames = {
+      idle: "อยู่เฉย ๆ",
+      attack_left: "โจมตีซ้าย",
+      attack_right: "โจมตีขวา",
+      defend_left: "ป้องกันซ้าย",
+      defend_right: "ป้องกันขวา",
+      block: "บล็อกทั้งหมด"
+    };
+
+    let gameRunning = false;
+    let score = 0;
+    let health = 100;
+    let round = 0;
+    let enemyAttack = "idle";
+    let movementPreview = false;
+    let movementTimer;
+
+    function startGame() {
+      gameRunning = true;
+      score = 0;
+      health = 100;
+      round = 0;
+      updateStatus("กำลังเล่น");
+      clearLog();
+      nextEnemyAttack();
+      showPose("idle");
+      setAction("เริ่มเกมแล้ว เลือกท่าของผู้เล่น");
+      addLog("เริ่มเกม");
+    }
+
+    function stopGame() {
+      gameRunning = false;
+      stopMovementPreview();
+      document.getElementById("enemyAttack").textContent = "เกมหยุดแล้ว";
+      updateStatus("หยุดแล้ว");
+      setAction("หยุดเกมแล้ว");
+      addLog("หยุดเกม");
+    }
+
+    function resetGame() {
+      gameRunning = false;
+      stopMovementPreview();
+      score = 0;
+      health = 100;
+      round = 0;
+      enemyAttack = "idle";
+      document.getElementById("enemyAttack").textContent = "กดเริ่มเกม";
+      document.getElementById("enemyFigure").className = "stick-figure enemy-figure pose-idle";
+      showPose("idle");
+      updateStatus("ยังไม่เริ่ม");
+      setAction("รีเซ็ตแล้ว กดเริ่มเกมเพื่อทดสอบ");
+      clearLog();
+    }
+
+    function toggleMovementPreview() {
+      movementPreview = !movementPreview;
+      const button = document.getElementById("movementButton");
+
+      button.classList.toggle("active", movementPreview);
+      button.textContent = movementPreview
+        ? "หยุดดูการเคลื่อนไหว"
+        : "ดูการเคลื่อนไหว";
+
+      if (movementPreview) {
+        setAction("โหมดดูการเคลื่อนไหว: กดปุ่มท่าเพื่อขยับตัวละคร");
+        startEnemyMovement();
+      } else {
+        stopMovementPreview();
+        setAction("หยุดโหมดดูการเคลื่อนไหว");
+      }
+    }
+
+    function startEnemyMovement() {
+      clearInterval(movementTimer);
+      nextEnemyAttack();
+      movementTimer = setInterval(nextEnemyAttack, 1200);
+    }
+
+    function stopMovementPreview() {
+      movementPreview = false;
+      clearInterval(movementTimer);
+      movementTimer = null;
+      const button = document.getElementById("movementButton");
+
+      if (button) {
+        button.classList.remove("active");
+        button.textContent = "ดูการเคลื่อนไหว";
+      }
+    }
+
+    function nextEnemyAttack() {
+      enemyAttack = Math.random() < 0.5 ? "attack_left" : "attack_right";
+      document.getElementById("enemyAttack").textContent = enemyAttack === "attack_left" ? "โจมตีซ้าย" : "โจมตีขวา";
+      document.getElementById("enemyFigure").className = "stick-figure enemy-figure pose-" + enemyAttack.replace(/_/g, "-");
+    }
+
+    function usePose(pose) {
+      showPose(pose);
+
+      if (movementPreview) {
+        setAction("กำลังดูท่า " + poseNames[pose]);
+        return;
+      }
+
+      if (!gameRunning) {
+        setAction("ต้องกดเริ่มเกมก่อน");
+        return;
+      }
+
+      round += 1;
+      const defenseSuccess = pose === "block" || pose === "defend_" + enemyAttack.split("_")[1];
+      const isAttack = pose === "attack_left" || pose === "attack_right";
+
+      if (isAttack) {
+        score += 10;
+        setAction("โจมตีสำเร็จ +10");
+        addLog("รอบ " + round + ": " + pose + " ได้คะแนน 10");
+      } else if (defenseSuccess) {
+        score += 5;
+        setAction("ป้องกันสำเร็จ +5");
+        addLog("รอบ " + round + ": " + pose + " ป้องกัน " + enemyAttack + " สำเร็จ");
+      } else {
+        health = Math.max(0, health - 10);
+        setAction("ป้องกันผิด เสียพลังชีวิต 10");
+        addLog("รอบ " + round + ": " + pose + " ป้องกันไม่ทัน");
+      }
+
+      updateStatus("กำลังเล่น");
+
+      if (health === 0) {
+        gameRunning = false;
+        updateStatus("แพ้เกม");
+        setAction("พลังชีวิตหมดแล้ว กดเริ่มใหม่");
+        addLog("จบเกม: ผู้เล่นแพ้");
+        return;
+      }
+
+      nextEnemyAttack();
+    }
+
+    function showPose(pose) {
+      const figure = document.getElementById("currentPoseFigure");
+      const currentName = document.getElementById("currentPoseName");
+      const detectedName = document.getElementById("detectedPoseName");
+
+      figure.className = "stick-figure pose-" + pose.replace(/_/g, "-");
+      currentName.textContent = poseNames[pose] + " (" + pose + ")";
+      detectedName.textContent = poseNames[pose] + " / " + pose;
+    }
+
+    function updateStatus(gameText) {
+      document.getElementById("gameState").textContent = gameText;
+      document.getElementById("score").textContent = score;
+      document.getElementById("health").textContent = health;
+      document.getElementById("round").textContent = round;
+      document.getElementById("startButton").disabled = gameRunning;
+      document.getElementById("stopButton").disabled = !gameRunning;
+    }
+
+    function setAction(text) {
+      document.getElementById("action").textContent = "สถานะ: " + text;
+    }
+
+    function addLog(message) {
+      const item = document.createElement("li");
+      item.textContent = message;
+      document.getElementById("eventLog").prepend(item);
+    }
+
+    function clearLog() {
+      document.getElementById("eventLog").innerHTML = "";
+    }
+
+    updateStatus("ยังไม่เริ่ม");
+    showPose("idle");
+  </script>
+</body>
+</html>
